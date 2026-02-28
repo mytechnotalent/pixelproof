@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-pixelproof pdf — Generate a professional PDF report from a Markdown analysis file.
+pixelproof pdf -- Generate a professional PDF report from a Markdown file.
 
 Usage:
     python generate_pdf.py <markdown_file> [output.pdf]
@@ -9,25 +9,16 @@ Requires:
     pip install markdown2 weasyprint
     brew install pango  (macOS)
 """
+
 import sys
 import os
 import markdown2
 
+# ---------------------------------------------------------------------------
+# CSS stylesheet constant for forensic report PDF styling
+# ---------------------------------------------------------------------------
 
-def generate_pdf(md_path, pdf_path=None):
-    """Convert a Markdown file to a styled forensic report PDF."""
-    if pdf_path is None:
-        pdf_path = os.path.splitext(md_path)[0] + ".pdf"
-
-    with open(md_path, "r") as f:
-        md_content = f.read()
-
-    html_body = markdown2.markdown(
-        md_content,
-        extras=["tables", "fenced-code-blocks", "code-friendly", "break-on-newline"],
-    )
-
-    css = """
+PDF_CSS = """
 @page {
     size: letter;
     margin: 0.75in 0.85in;
@@ -87,7 +78,8 @@ td {
 tr:nth-child(even) { background: #f7f9fa; }
 code {
     background: #f4f4f4; padding: 1px 4px; border-radius: 3px;
-    font-family: 'Menlo', 'Courier New', monospace; font-size: 10px; color: #c0392b;
+    font-family: 'Menlo', 'Courier New', monospace; font-size: 10px;
+    color: #c0392b;
 }
 pre {
     background: #1e1e1e; color: #d4d4d4; padding: 12px 14px;
@@ -100,32 +92,139 @@ ul, ol { margin: 6px 0; padding-left: 24px; }
 li { margin: 3px 0; }
 """
 
-    html_doc = f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8"><style>{css}</style></head>
-<body>{html_body}</body></html>"""
 
+# ---------------------------------------------------------------------------
+# Private helpers for _generate_pdf (in call order)
+# ---------------------------------------------------------------------------
+
+
+def _default_pdf_path(md_path):
+    """Derive the default PDF output path from a Markdown file path.
+
+    Args:
+        md_path: Path to the source Markdown file.
+
+    Returns:
+        PDF path with the same basename and .pdf extension.
+    """
+    return os.path.splitext(md_path)[0] + ".pdf"
+
+
+def _read_markdown(md_path):
+    """Read and return the full contents of a Markdown file.
+
+    Args:
+        md_path: Path to the Markdown file.
+
+    Returns:
+        The file contents as a string.
+    """
+    with open(md_path, "r") as f:
+        return f.read()
+
+
+def _convert_to_html(md_content):
+    """Convert Markdown text to HTML with table and code block support.
+
+    Args:
+        md_content: Markdown-formatted string.
+
+    Returns:
+        HTML string of the converted content.
+    """
+    return markdown2.markdown(
+        md_content,
+        extras=["tables", "fenced-code-blocks", "code-friendly", "break-on-newline"],
+    )
+
+
+def _build_html_document(html_body):
+    """Wrap an HTML body fragment into a full HTML document with PDF CSS.
+
+    Args:
+        html_body: HTML content string for the document body.
+
+    Returns:
+        Complete HTML document string with embedded CSS.
+    """
+    return (
+        f'<!DOCTYPE html>\n<html><head><meta charset="utf-8">'
+        f"<style>{PDF_CSS}</style></head>\n<body>{html_body}</body></html>"
+    )
+
+
+def _write_pdf_file(html_doc, pdf_path):
+    """Render an HTML document to a PDF file using WeasyPrint.
+
+    Args:
+        html_doc: Complete HTML document string.
+        pdf_path: Output file path for the PDF.
+    """
     from weasyprint import HTML
 
     HTML(string=html_doc).write_pdf(pdf_path)
 
+
+def _print_pdf_result(pdf_path):
+    """Print a confirmation message with the PDF path and file size.
+
+    Args:
+        pdf_path: Path to the generated PDF file.
+    """
     size_kb = os.path.getsize(pdf_path) / 1024
-    print(f"✓ PDF generated: {pdf_path} ({size_kb:.1f} KB)")
+    print(f"\u2713 PDF generated: {pdf_path} ({size_kb:.1f} KB)")
+
+
+def _generate_pdf(md_path, pdf_path=None):
+    """Convert a Markdown file to a styled forensic report PDF.
+
+    Args:
+        md_path: Path to the input Markdown file.
+        pdf_path: Optional output PDF path; defaults to same basename.
+
+    Returns:
+        The path to the generated PDF file.
+    """
+    pdf_path = pdf_path or _default_pdf_path(md_path)
+    md_content = _read_markdown(md_path)
+    html_body = _convert_to_html(md_content)
+    html_doc = _build_html_document(html_body)
+    _write_pdf_file(html_doc, pdf_path)
+    _print_pdf_result(pdf_path)
     return pdf_path
 
 
-def main():
+# ---------------------------------------------------------------------------
+# Private helpers for main (in call order)
+# ---------------------------------------------------------------------------
+
+
+def _validate_cli_args():
+    """Validate CLI arguments and return Markdown path and optional PDF path.
+
+    Returns:
+        Tuple of (md_path, pdf_path) where pdf_path may be None.
+    """
     if len(sys.argv) < 2:
         print("Usage: python generate_pdf.py <markdown_file> [output.pdf]")
         sys.exit(1)
-
     md_path = sys.argv[1]
     pdf_path = sys.argv[2] if len(sys.argv) > 2 else None
-
     if not os.path.isfile(md_path):
-        print(f"Error: file not found — {md_path}")
+        print(f"Error: file not found -- {md_path}")
         sys.exit(1)
+    return md_path, pdf_path
 
-    generate_pdf(md_path, pdf_path)
+
+# ---------------------------------------------------------------------------
+# CLI entry point
+# ---------------------------------------------------------------------------
+
+
+def main():
+    """Entry point for the generate_pdf command-line tool."""
+    md_path, pdf_path = _validate_cli_args()
+    _generate_pdf(md_path, pdf_path)
 
 
 if __name__ == "__main__":

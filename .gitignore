@@ -26,14 +26,4 @@ Thumbs.db
 # Analysis outputs (don't commit user data)
 *.pdf
 *_ELA.png
-ANALYSIS.md
-
-# Images (don't commit test photos)
-*.jpg
-*.jpeg
-*.png
-*.gif
-*.bmp
-*.tiff
-*.webp
-!README.md
+*_REPORT.md

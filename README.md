@@ -4,6 +4,11 @@
 
 PixelProof is a forensic-grade image analysis toolkit that exposes manipulation through metadata inspection, Error Level Analysis (ELA), noise profiling, and more — all from the command line.
 
+**AUTHOR:** [Kevin Thomas](ket189@pitt.edu)
+
+**CREATION DATE:** January 19, 2026  
+**UPDATE DATE:** February 28, 2026
+
 ![Python](https://img.shields.io/badge/python-3.9+-blue?logo=python&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Pillow](https://img.shields.io/badge/Pillow-powered-yellow?logo=python)
@@ -30,7 +35,7 @@ PixelProof is a forensic-grade image analysis toolkit that exposes manipulation 
 
 ```bash
 # Clone the repo
-git clone https://github.com/kevinthomas/pixelproof.git
+git clone https://github.com/mytechnotalent/pixelproof.git
 cd pixelproof
 
 # Create a virtual environment
@@ -68,21 +73,89 @@ Output:
 ### Run a Deep Analysis (9 passes)
 
 ```bash
-python deep_analysis.py photo.jpg
+python deep_analysis.py suspect.jpg
 ```
 
-This runs all forensic checks and generates an ELA image (`photo_ELA.png`) highlighting manipulated regions.
+This runs all forensic checks and saves:
+- `suspect_ELA.png` — ELA visualization highlighting manipulated regions
+- `suspect_REPORT.md` — full Markdown forensic report
 
 ### Generate a PDF Report
 
 ```bash
 # Install PDF dependencies
 pip install ".[pdf]"
-brew install pango  # macOS only
-
-# Generate PDF from any markdown file
-python generate_pdf.py ANALYSIS.md report.pdf
 ```
+
+#### macOS
+
+WeasyPrint needs system libraries installed via Homebrew:
+
+```bash
+brew install pango glib cairo gobject-introspection
+```
+
+On macOS, the dynamic linker doesn't search Homebrew's library path by default. Set it before running:
+
+```bash
+export DYLD_LIBRARY_PATH="/opt/homebrew/lib"
+python deep_analysis.py suspect.jpg --pdf
+```
+
+Or inline on a single command:
+
+```bash
+DYLD_LIBRARY_PATH="/opt/homebrew/lib" python deep_analysis.py suspect.jpg --pdf
+```
+
+> **Tip:** Add `export DYLD_LIBRARY_PATH="/opt/homebrew/lib"` to your `~/.zshrc` to make it permanent.
+
+#### Windows
+
+WeasyPrint requires GTK libraries. Install them via [MSYS2](https://www.msys2.org/):
+
+1. Download and install MSYS2 from https://www.msys2.org/
+2. Open the MSYS2 UCRT64 terminal and run:
+   ```bash
+   pacman -S mingw-w64-ucrt-x86_64-pango
+   ```
+3. Add the MSYS2 binary path to your system `PATH`:
+   ```
+   C:\msys64\ucrt64\bin
+   ```
+4. Restart your terminal / IDE, then:
+   ```bash
+   python deep_analysis.py suspect.jpg --pdf
+   ```
+
+> **Tip:** If you see `cannot load library 'libgobject-2.0-0'` or similar, the MSYS2 `bin` directory is not on your `PATH`.
+
+#### Linux
+
+Most distributions have the required libraries available via the system package manager:
+
+```bash
+# Debian / Ubuntu
+sudo apt install libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0
+
+# Fedora
+sudo dnf install pango
+
+# Arch
+sudo pacman -S pango
+```
+
+No extra environment variables are needed on Linux.
+
+---
+
+Once the system libraries are in place, add `--pdf` to any deep analysis:
+
+```bash
+python deep_analysis.py suspect.jpg --pdf
+```
+
+This produces `suspect_REPORT.pdf` alongside the Markdown report — one command, one image, full pipeline.
 
 ---
 
@@ -126,12 +199,13 @@ python pixelproof.py suspect.jpg
 ### Full forensic deep dive
 ```bash
 python deep_analysis.py suspect.jpg
+# Outputs: suspect_ELA.png + suspect_REPORT.md
 ```
 
-### Generate a PDF report from your findings
+### Full analysis with PDF report
 ```bash
-# Write your analysis to a .md file, then:
-python generate_pdf.py my_analysis.md
+python deep_analysis.py suspect.jpg --pdf
+# Outputs: suspect_ELA.png + suspect_REPORT.md + suspect_REPORT.pdf
 ```
 
 ---
@@ -140,8 +214,11 @@ python generate_pdf.py my_analysis.md
 
 - **Python 3.9+**
 - **Pillow** (installed automatically)
-- **weasyprint + markdown2** (optional, for PDF generation)
-- **pango** (system library, `brew install pango` on macOS — only needed for PDFs)
+- **weasyprint + markdown2** (optional, for PDF generation — `pip install ".[pdf]"`)
+- **System libraries for PDF** (only needed if using `--pdf`):
+  - **macOS:** `brew install pango glib cairo gobject-introspection` + set `DYLD_LIBRARY_PATH="/opt/homebrew/lib"`
+  - **Windows:** MSYS2 with `pacman -S mingw-w64-ucrt-x86_64-pango` + add `C:\msys64\ucrt64\bin` to `PATH`
+  - **Linux:** `sudo apt install libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0` (Debian/Ubuntu)
 
 ---
 

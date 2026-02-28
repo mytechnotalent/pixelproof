@@ -3,7 +3,7 @@ name = "pixelproof"
 version = "1.0.0"
 description = "Detect fake, AI-generated, and Photoshopped images with forensic-grade analysis"
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
 requires-python = ">=3.9"
 keywords = [
     "forensics",
@@ -19,7 +19,6 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Topic :: Scientific/Engineering :: Image Processing",
     "Topic :: Security",
@@ -28,6 +27,7 @@ dependencies = ["Pillow>=10.0.0"]
 
 [project.optional-dependencies]
 pdf = ["markdown2>=2.4.0", "weasyprint>=60.0"]
+dev = ["black>=24.0"]
 
 [project.scripts]
 pixelproof = "pixelproof:main"
@@ -35,9 +35,12 @@ pixelproof-deep = "deep_analysis:main"
 pixelproof-pdf = "generate_pdf:main"
 
 [project.urls]
-Homepage = "https://github.com/kevinthomas/pixelproof"
-Issues = "https://github.com/kevinthomas/pixelproof/issues"
+Homepage = "https://github.com/mytechnotalent/pixelproof"
+Issues = "https://github.com/mytechnotalent/pixelproof/issues"
 
 [build-system]
 requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["pixelproof", "deep_analysis", "generate_pdf"]
