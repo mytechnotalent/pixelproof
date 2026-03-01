@@ -29,6 +29,9 @@ import PIL.ImageFilter
 import PIL.ImageStat
 import PIL.ExifTags
 
+from forensic_engine import analyze_advanced_forensics, compute_authenticity_assessment
+from provenance import create_provenance_bundle
+
 # ---------------------------------------------------------------------------
 # Camera EXIF field names expected in genuine photographs
 # ---------------------------------------------------------------------------
@@ -2246,6 +2249,110 @@ def _md_jpeg_section(d):
     return lines
 
 
+def _md_advanced_forensics(d):
+    """Build advanced forensics markdown section.
+
+    Args:
+        d: Report data dictionary.
+
+    Returns:
+        List of markdown lines.
+    """
+    adv = d.get("advanced", {})
+    if not adv:
+        return []
+    lines = _md_advanced_header()
+    lines.extend(_md_advanced_rows(adv))
+    lines.extend(["", "---", ""])
+    return lines
+
+
+def _md_advanced_header():
+    """Build the heading/table header for advanced markdown section.
+
+    Returns:
+        List of markdown lines.
+    """
+    return [
+        "## 11. Advanced Forensics",
+        "",
+        "| Check | Metric | Value |",
+        "|------|--------|-------|",
+    ]
+
+
+def _md_advanced_rows(adv):
+    """Build metric rows for advanced markdown section.
+
+    Args:
+        adv: Advanced forensics dictionary.
+
+    Returns:
+        List of markdown table rows.
+    """
+    hist = adv.get("histogram", {})
+    grad = adv.get("gradient", {})
+    copy_move = adv.get("copy_move", {})
+    ghost = adv.get("jpeg_ghost", {})
+    return [
+        f"| Histogram | Empty-bin ratio | {hist.get('empty_ratio', 0):.4f} |",
+        f"| Histogram | Comb score | {hist.get('score', 0):.4f} |",
+        f"| Gradient | Consistency CV | {grad.get('gradient_cv', 0):.4f} |",
+        f"| Copy-Move | Duplicate ratio | {copy_move.get('duplicate_ratio', 0):.4f} |",
+        f"| JPEG Ghost | Instability score | {ghost.get('score', 0):.4f} |",
+    ]
+
+
+def _md_auth_header():
+    """Build markdown header for authenticity fusion section.
+
+    Returns:
+        List of markdown header lines.
+    """
+    return [
+        "## 12. Authenticity Fusion",
+        "",
+        "| Metric | Value |",
+        "|--------|-------|",
+    ]
+
+
+def _md_auth_rows(assessment):
+    """Build markdown rows for authenticity fusion metrics.
+
+    Args:
+        assessment: Authenticity assessment dictionary.
+
+    Returns:
+        List of markdown rows.
+    """
+    probability = 100.0 * assessment.get("tamper_probability", 0.0)
+    return [
+        f"| Tamper probability | **{probability:.2f}%** |",
+        f"| Confidence | **{assessment.get('confidence', 'LOW')}** |",
+        f"| Verdict | **{assessment.get('verdict', 'INCONCLUSIVE')}** |",
+        f"| Consensus | {assessment.get('consensus', 0.0):.4f} |",
+    ]
+
+
+def _md_authenticity_section(d):
+    """Build complete markdown section for authenticity fusion output.
+
+    Args:
+        d: Report data dictionary.
+
+    Returns:
+        List of markdown lines.
+    """
+    assessment = d.get("assessment", {})
+    if not assessment:
+        return []
+    lines = _md_auth_header()
+    lines.extend(_md_auth_rows(assessment))
+    lines.extend(["", "---", ""])
+    return lines
+
+
 def _md_stego_chi_header():
     """Return chi-square table markdown header lines.
 
@@ -2473,7 +2580,7 @@ def _md_stego_section_intro():
         List of introductory markdown lines.
     """
     return [
-        "## 9. Steganography Detection",
+        "## 10. Steganography Detection",
         "",
         "Steganography hides secret messages inside image pixels by modifying "
         "the least significant bits (LSBs). Multiple statistical tests detect "
@@ -2691,6 +2798,8 @@ def _md_late_analysis(d):
     lines.extend(_md_noise_section(d))
     lines.extend(_md_jpeg_section(d))
     lines.extend(_md_stego_section(d))
+    lines.extend(_md_advanced_forensics(d))
+    lines.extend(_md_authenticity_section(d))
     return lines
 
 
@@ -2858,6 +2967,20 @@ def _check_stego_findings(stego):
     return list(stego.get("findings", []))
 
 
+def _check_advanced_findings(advanced):
+    """Evaluate advanced forensics findings for verdict fusion.
+
+    Args:
+        advanced: Advanced forensic results dictionary, or None.
+
+    Returns:
+        List of (description, severity) tuples.
+    """
+    if not advanced:
+        return []
+    return list(advanced.get("findings", []))
+
+
 def _compute_all_findings(results):
     """Compute all forensic findings and total severity score.
 
@@ -2878,6 +3001,7 @@ def _compute_all_findings(results):
         )
     )
     findings.extend(_check_stego_findings(results.get("stego")))
+    findings.extend(_check_advanced_findings(results.get("advanced")))
     return findings, sum(s for _, s in findings)
 
 
@@ -3293,6 +3417,42 @@ def _build_stego_result(chi, spa, rs, bp, found, verdict, findings, dct):
     return results
 
 
+def _print_advanced_forensics_header():
+    """Print the advanced forensics section header.
+
+    Returns:
+        None.
+    """
+    _section("11. ADVANCED FORENSICS")
+
+
+def _print_advanced_forensics_summary(advanced):
+    """Print key metrics from advanced forensic analysis.
+
+    Args:
+        advanced: Advanced forensics result dictionary.
+    """
+    print(f"\n  Histogram score:  {advanced['histogram']['score']:.4f}")
+    print(f"  Gradient CV:      {advanced['gradient']['gradient_cv']:.4f}")
+    print(f"  Copy-move ratio:  {advanced['copy_move']['duplicate_ratio']:.4f}")
+    print(f"  JPEG ghost score: {advanced['jpeg_ghost']['score']:.4f}")
+
+
+def _run_advanced_forensics(image_path):
+    """Run advanced forensics and print section output.
+
+    Args:
+        image_path: Path to the image file.
+
+    Returns:
+        Advanced forensics result dictionary.
+    """
+    _print_advanced_forensics_header()
+    advanced = analyze_advanced_forensics(image_path)
+    _print_advanced_forensics_summary(advanced)
+    return advanced
+
+
 def _run_all_analyses(image_path):
     """Execute all 10 forensic analysis passes on an image.
 
@@ -3312,6 +3472,7 @@ def _run_all_analyses(image_path):
     noise_vals, noise_mean, noise_std, noise_cv = _noise_analysis(image_path)
     jpeg = _check_jpeg_compression(image_path)
     stego = _run_stego_detection(image_path)
+    advanced = _run_advanced_forensics(image_path)
     return {
         "exif": exif,
         "info_keys": info_keys,
@@ -3335,6 +3496,7 @@ def _run_all_analyses(image_path):
         "noise_cv": noise_cv,
         "jpeg": jpeg,
         "stego": stego,
+        "advanced": advanced,
     }
 
 
@@ -3382,7 +3544,19 @@ def _determine_verdict_label(total_severity):
     return "NO RED FLAGS"
 
 
-def _print_terminal_verdict(findings, total_severity, ela):
+def _print_auth_summary(assessment):
+    """Print authenticity fusion summary to terminal.
+
+    Args:
+        assessment: Authenticity assessment dictionary.
+    """
+    probability = 100.0 * assessment.get("tamper_probability", 0.0)
+    print(f"\n  Tamper probability: {probability:.2f}%")
+    print(f"  Confidence: {assessment.get('confidence', 'LOW')}")
+    print(f"  Fusion verdict: {assessment.get('verdict', 'INCONCLUSIVE')}")
+
+
+def _print_terminal_verdict(findings, total_severity, ela, assessment):
     """Print the complete terminal verdict section.
 
     Args:
@@ -3397,13 +3571,14 @@ def _print_terminal_verdict(findings, total_severity, ela):
     print(f"\n  Findings: {len(findings)}  |  Severity score: {total_severity}")
     for i, (desc, sev) in enumerate(findings, 1):
         _print_finding_row(i, desc, sev)
+    _print_auth_summary(assessment)
     verdict_label = _determine_verdict_label(total_severity)
     print(f"\n  ELA image: {ela['ela_image_saved']}")
     return verdict_label
 
 
 def _build_report_data(
-    image_path, basics, results, findings, total_severity, verdict_label
+    image_path, basics, results, findings, total_severity, verdict_label, assessment
 ):
     """Build the complete report data dictionary for markdown generation.
 
@@ -3429,6 +3604,7 @@ def _build_report_data(
         "findings": findings,
         "total_severity": total_severity,
         "verdict_label": verdict_label,
+        "assessment": assessment,
     }
     d.update(results)
     return d
@@ -3470,24 +3646,107 @@ def _attempt_pdf_generation(md_path, image_path):
         print(f"  >> PDF generation failed: {e}")
 
 
-def _full_forensic_analysis(image_path, generate_pdf_flag=False):
-    """Run the complete 10-pass forensic analysis pipeline on an image.
+def _attempt_provenance_generation(image_path, md_path, ela_path, pdf_path=None):
+    """Generate provenance manifest and optional detached signature.
+
+    Args:
+        image_path: Input image path.
+        md_path: Markdown report path.
+        ela_path: ELA artifact path.
+        pdf_path: Optional PDF report path.
+    """
+    key = os.environ.get("PIXELPROOF_PROVENANCE_KEY")
+    manifest_path, sig_path = create_provenance_bundle(
+        image_path, md_path, ela_path, pdf_path, key
+    )
+    print(f"  Provenance: {manifest_path}")
+    if sig_path:
+        print(f"  Signature:  {sig_path}")
+
+
+def _compute_forensic_assessment(results):
+    """Compute findings, severity, and fused authenticity assessment.
+
+    Args:
+        results: Full analysis results dictionary.
+
+    Returns:
+        Tuple of (findings, total_severity, assessment).
+    """
+    findings, total_severity = _compute_all_findings(results)
+    results["findings"] = findings
+    assessment = compute_authenticity_assessment(results)
+    return findings, total_severity, assessment
+
+
+def _build_and_save_report(
+    image_path,
+    basics,
+    results,
+    findings,
+    total_severity,
+    verdict_label,
+    assessment,
+):
+    """Build and save markdown report from analysis outputs.
+
+    Args:
+        image_path: Path to source image.
+        basics: Basic image metadata tuple.
+        results: Full analysis results dictionary.
+        findings: Forensic findings list.
+        total_severity: Total severity score.
+        verdict_label: Final terminal verdict label.
+        assessment: Fused authenticity assessment dictionary.
+
+    Returns:
+        Path to saved markdown report.
+    """
+    report_data = _build_report_data(
+        image_path, basics, results, findings, total_severity, verdict_label, assessment
+    )
+    return _save_markdown_report(report_data, image_path)
+
+
+def _report_pdf_path(image_path):
+    """Derive PDF report path from image path.
+
+    Args:
+        image_path: Input image path.
+
+    Returns:
+        Expected PDF report path.
+    """
+    return os.path.splitext(image_path)[0] + "_REPORT.pdf"
+
+
+def _full_forensic_analysis(
+    image_path, generate_pdf_flag=False, generate_provenance=False
+):
+    """Run the complete forensic analysis pipeline on an image.
 
     Args:
         image_path: Path to the image file to analyze.
         generate_pdf_flag: Whether to generate a PDF report.
+        generate_provenance: Whether to generate provenance artifacts.
     """
     _print_banner(image_path)
     basics = _get_image_basics(image_path)
     results = _run_all_analyses(image_path)
-    findings, total_severity = _compute_all_findings(results)
-    verdict_label = _print_terminal_verdict(findings, total_severity, results["ela"])
-    report_data = _build_report_data(
-        image_path, basics, results, findings, total_severity, verdict_label
+    findings, total_severity, assessment = _compute_forensic_assessment(results)
+    verdict_label = _print_terminal_verdict(
+        findings, total_severity, results["ela"], assessment
     )
-    md_path = _save_markdown_report(report_data, image_path)
+    md_path = _build_and_save_report(
+        image_path, basics, results, findings, total_severity, verdict_label, assessment
+    )
+    pdf_path = _report_pdf_path(image_path) if generate_pdf_flag else None
     if generate_pdf_flag:
         _attempt_pdf_generation(md_path, image_path)
+    if generate_provenance:
+        _attempt_provenance_generation(
+            image_path, md_path, results["ela"]["ela_image_saved"], pdf_path
+        )
     print("=" * 70)
 
 
@@ -3500,19 +3759,19 @@ def _parse_cli_args():
     """Parse command-line arguments for the deep analysis tool.
 
     Returns:
-        Tuple of (image_path, want_pdf_bool).
+        Tuple of (image_path, want_pdf_bool, want_provenance_bool).
     """
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     flags = [a for a in sys.argv[1:] if a.startswith("--")]
     if not args:
-        print("Usage: python deep_analysis.py <image_path> [--pdf]")
+        print("Usage: python deep_analysis.py <image_path> [--pdf] [--provenance]")
         print("")
         print("  Runs 10-pass forensic analysis and saves:")
         print("    <image>_ELA.png     Error Level Analysis image")
         print("    <image>_REPORT.md   Comprehensive Markdown report")
         print("    <image>_REPORT.pdf  PDF report (with --pdf)")
         sys.exit(1)
-    return args[0], "--pdf" in flags
+    return args[0], "--pdf" in flags, "--provenance" in flags
 
 
 def _validate_image_file(image_path):
@@ -3532,9 +3791,11 @@ def _validate_image_file(image_path):
 
 def main():
     """Entry point for the deep_analysis command-line tool."""
-    image_path, want_pdf = _parse_cli_args()
+    image_path, want_pdf, want_provenance = _parse_cli_args()
     _validate_image_file(image_path)
-    _full_forensic_analysis(image_path, generate_pdf_flag=want_pdf)
+    _full_forensic_analysis(
+        image_path, generate_pdf_flag=want_pdf, generate_provenance=want_provenance
+    )
 
 
 if __name__ == "__main__":

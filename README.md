@@ -32,6 +32,29 @@ PixelProof is a forensic-grade image analysis toolkit that exposes manipulation 
 
 ## Quick Start
 
+### 60-Second Setup (Recommended)
+
+```bash
+cd pixelproof
+python3 -m venv .venv
+source .venv/bin/activate
+pip install .
+```
+
+Run a full forensic analysis (with PDF):
+
+```bash
+.venv/bin/python deep_analysis.py IMG_0436.JPG --pdf
+```
+
+What you get:
+- `*_ELA.png` (Error Level Analysis image)
+- `*_REPORT.md` (full forensic report)
+- `*_REPORT.pdf` (PDF report)
+- Final terminal output with **tamper probability**, **confidence**, and **fusion verdict**
+
+---
+
 ### Install
 
 ```bash
@@ -71,10 +94,16 @@ Output:
 ============================================================
 ```
 
-### Run a Deep Analysis (10 passes)
+### Run a Deep Analysis (11+ forensic passes)
 
 ```bash
 python deep_analysis.py suspect.jpg
+```
+
+Or with explicit venv interpreter:
+
+```bash
+.venv/bin/python deep_analysis.py suspect.jpg --pdf
 ```
 
 This runs all forensic checks and saves:

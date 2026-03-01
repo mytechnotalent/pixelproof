@@ -53,10 +53,47 @@ EDITING_SOFTWARE = [
     "adobe",
 ]
 
+PHOTOSHOP_HEADER_FLAG = "PHOTOSHOP RESOURCE BLOCK detected in file headers — image was processed through Adobe Photoshop or compatible software"
+NO_CAMERA_INFO_FLAG = "NO CAMERA HARDWARE INFO — no Make, Model, Lens, ISO, etc. Real photos almost always have these"
+NO_GPS_FLAG = "NO GPS DATA — could be stripped or location was off"
+NO_TIMESTAMP_FLAG = "NO TIMESTAMP — real camera photos have date/time"
+NO_EXIF_FLAG = (
+    "NO EXIF DATA — metadata stripped or never existed (common in fakes / screenshots)"
+)
+
 
 # ---------------------------------------------------------------------------
 # Private helpers for _check_photoshop_data (in call order)
 # ---------------------------------------------------------------------------
+
+
+def _ps_entry(res_id, res_val):
+    """Build base Photoshop entry fields.
+
+    Args:
+        res_id: Numeric resource identifier.
+        res_val: Resource payload value.
+
+    Returns:
+        Base entry dictionary.
+    """
+    return {
+        "id": f"0x{res_id:04X}",
+        "size": len(res_val) if isinstance(res_val, bytes) else 0,
+    }
+
+
+def _is_caption_block(res_id, res_val):
+    """Check whether Photoshop block is caption-digest payload.
+
+    Args:
+        res_id: Numeric resource identifier.
+        res_val: Resource payload value.
+
+    Returns:
+        True when caption digest block.
+    """
+    return res_id == 0x0425 and isinstance(res_val, bytes)
 
 
 def _build_ps_block_entry(res_id, res_val):
@@ -69,21 +106,14 @@ def _build_ps_block_entry(res_id, res_val):
     Returns:
         Tuple of (entry_dict, extra_flag_string_or_None).
     """
-    entry = {
-        "id": f"0x{res_id:04X}",
-        "size": len(res_val) if isinstance(res_val, bytes) else 0,
-    }
-    extra_flag = None
-    if res_id == 0x0425 and isinstance(res_val, bytes):
-        entry["caption_digest"] = res_val.hex()
-        if entry["caption_digest"] == "d41d8cd98f00b204e9800998ecf8427e":
-            entry["note"] = (
-                "MD5 of empty string \u2014 caption was deliberately blanked"
-            )
-            extra_flag = (
-                "Caption Digest is MD5('') \u2014 metadata was intentionally scrubbed"
-            )
-    return entry, extra_flag
+    entry = _ps_entry(res_id, res_val)
+    if not _is_caption_block(res_id, res_val):
+        return entry, None
+    entry["caption_digest"] = res_val.hex()
+    if entry["caption_digest"] != "d41d8cd98f00b204e9800998ecf8427e":
+        return entry, None
+    entry["note"] = "MD5 of empty string — caption was deliberately blanked"
+    return entry, "Caption Digest is MD5('') — metadata was intentionally scrubbed"
 
 
 # ---------------------------------------------------------------------------
@@ -120,6 +150,23 @@ def _extract_file_details(img):
     }
 
 
+def _collect_ps_data(ps_data):
+    """Collect parsed Photoshop blocks and extra flags from dict payload.
+
+    Args:
+        ps_data: Photoshop metadata payload.
+
+    Returns:
+        Tuple of (extra_flags, blocks).
+    """
+    if not isinstance(ps_data, dict):
+        return [], []
+    pairs = [
+        _build_ps_block_entry(res_id, res_val) for res_id, res_val in ps_data.items()
+    ]
+    return [flag for _, flag in pairs if flag], [entry for entry, _ in pairs]
+
+
 def _check_photoshop_data(img):
     """Check for Photoshop resource blocks in the image file headers.
 
@@ -133,16 +180,9 @@ def _check_photoshop_data(img):
     ps_data = img.info.get("photoshop")
     if not ps_data:
         return flags, blocks
-    flags.append(
-        "PHOTOSHOP RESOURCE BLOCK detected in file headers \u2014 "
-        "image was processed through Adobe Photoshop or compatible software"
-    )
-    if isinstance(ps_data, dict):
-        for res_id, res_val in ps_data.items():
-            entry, extra_flag = _build_ps_block_entry(res_id, res_val)
-            blocks.append(entry)
-            if extra_flag:
-                flags.append(extra_flag)
+    flags.append(PHOTOSHOP_HEADER_FLAG)
+    extra_flags, blocks = _collect_ps_data(ps_data)
+    flags.extend(extra_flags)
     return flags, blocks
 
 
@@ -155,15 +195,9 @@ def _init_report(img):
     Returns:
         Report dictionary with initial flags, details, and photoshop_blocks.
     """
-    report = {
-        "flags": [],
-        "details": _extract_file_details(img),
-        "photoshop_blocks": [],
-    }
+    details = _extract_file_details(img)
     ps_flags, ps_blocks = _check_photoshop_data(img)
-    report["flags"].extend(ps_flags)
-    report["photoshop_blocks"] = ps_blocks
-    return report
+    return {"flags": ps_flags, "details": details, "photoshop_blocks": ps_blocks}
 
 
 # ---------------------------------------------------------------------------
@@ -192,15 +226,12 @@ def _check_camera_fields(meta):
     Returns:
         List of flag strings for missing camera data.
     """
-    present = [f for f in CAMERA_FIELDS if f in meta]
-    missing = [f for f in CAMERA_FIELDS if f not in meta]
+    present = [field for field in CAMERA_FIELDS if field in meta]
+    missing = [field for field in CAMERA_FIELDS if field not in meta]
     if not present:
-        return [
-            "NO CAMERA HARDWARE INFO \u2014 no Make, Model, Lens, ISO, etc. "
-            "Real photos almost always have these"
-        ]
+        return [NO_CAMERA_INFO_FLAG]
     if len(missing) > len(present):
-        return [f"SPARSE CAMERA DATA \u2014 missing: {', '.join(missing)}"]
+        return [f"SPARSE CAMERA DATA — missing: {', '.join(missing)}"]
     return []
 
 
@@ -249,6 +280,22 @@ def _check_orientation_flag(meta):
     return None
 
 
+def _timestamp_from_meta(meta):
+    """Extract preferred EXIF timestamp value.
+
+    Args:
+        meta: Dictionary of human-readable EXIF tags.
+
+    Returns:
+        Timestamp value or None.
+    """
+    return (
+        meta.get("DateTime")
+        or meta.get("DateTimeOriginal")
+        or meta.get("DateTimeDigitized")
+    )
+
+
 def _check_gps_and_timestamp(meta):
     """Check for missing GPS data and timestamp in EXIF metadata.
 
@@ -258,16 +305,10 @@ def _check_gps_and_timestamp(meta):
     Returns:
         Tuple of (flags_list, timestamp_string_or_None).
     """
-    flags = []
-    if not meta.get("GPSInfo"):
-        flags.append("NO GPS DATA \u2014 could be stripped or location was off")
-    dt = (
-        meta.get("DateTime")
-        or meta.get("DateTimeOriginal")
-        or meta.get("DateTimeDigitized")
-    )
+    flags = [] if meta.get("GPSInfo") else [NO_GPS_FLAG]
+    dt = _timestamp_from_meta(meta)
     if not dt:
-        flags.append("NO TIMESTAMP \u2014 real camera photos have date/time")
+        flags.append(NO_TIMESTAMP_FLAG)
     return flags, str(dt) if dt else None
 
 
@@ -281,9 +322,9 @@ def _check_metadata_anomalies(meta):
         Tuple of (flags_list, timestamp_or_None).
     """
     flags = [
-        f
-        for f in [_check_resolution_mismatch(meta), _check_orientation_flag(meta)]
-        if f
+        flag
+        for flag in [_check_resolution_mismatch(meta), _check_orientation_flag(meta)]
+        if flag
     ]
     gps_flags, timestamp = _check_gps_and_timestamp(meta)
     flags.extend(gps_flags)
@@ -305,11 +346,6 @@ def _add_exif_flags(meta, report):
         report["details"]["timestamp"] = timestamp
 
 
-# ---------------------------------------------------------------------------
-# Private helpers for _analyze_metadata (in call order)
-# ---------------------------------------------------------------------------
-
-
 def _analyze_exif(raw, report):
     """Analyze EXIF metadata and add findings to the report.
 
@@ -321,9 +357,7 @@ def _analyze_exif(raw, report):
         Updated report dictionary.
     """
     if not raw:
-        report["flags"].append(
-            "NO EXIF DATA \u2014 metadata stripped or never existed (common in fakes / screenshots)"
-        )
+        report["flags"].append(NO_EXIF_FLAG)
         return report
     meta = _readable_exif(raw)
     report["details"].update(meta)
@@ -434,21 +468,31 @@ def _print_flags(report):
         print("\n  \u2713 No red flags found")
 
 
+def _verdict_line(n_flags):
+    """Map forensic flag count to verdict display line.
+
+    Args:
+        n_flags: Number of forensic flags.
+
+    Returns:
+        Single-line verdict text.
+    """
+    if n_flags >= 4:
+        return "  \U0001f534 HIGHLY SUSPICIOUS"
+    if n_flags >= 2:
+        return "  \U0001f7e1 SUSPICIOUS"
+    return "  \U0001f7e1 MINOR CONCERN" if n_flags == 1 else "  \U0001f7e2 CLEAN"
+
+
 def _print_verdict(n_flags):
     """Print the final verdict based on the number of forensic flags.
 
     Args:
         n_flags: Number of forensic flags found.
     """
+    verdict = _verdict_line(n_flags)
     print("\n" + "=" * 60)
-    if n_flags >= 4:
-        print("  \U0001f534 HIGHLY SUSPICIOUS")
-    elif n_flags >= 2:
-        print("  \U0001f7e1 SUSPICIOUS")
-    elif n_flags == 1:
-        print("  \U0001f7e1 MINOR CONCERN")
-    else:
-        print("  \U0001f7e2 CLEAN")
+    print(verdict)
     print("=" * 60)
 
 
@@ -459,9 +503,9 @@ def _print_verdict(n_flags):
 
 def main():
     """Entry point for the pixelproof quick scan CLI."""
-    image_path = _validate_image_path()
+    report = _analyze_metadata(_validate_image_path())
+    image_path = sys.argv[1]
     _print_header(image_path)
-    report = _analyze_metadata(image_path)
     _print_file_details(report)
     _print_photoshop_blocks(report)
     _print_flags(report)

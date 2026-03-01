@@ -34,6 +34,8 @@ pixelproof = "pixelproof:main"
 pixelproof-deep = "deep_analysis:main"
 pixelproof-pdf = "generate_pdf:main"
 pixelproof-stego = "stego:main"
+pixelproof-style = "style_guard:style_guard_main"
+pixelproof-provenance = "provenance:provenance_main"
 
 [project.urls]
 Homepage = "https://github.com/mytechnotalent/pixelproof"
@@ -44,4 +46,11 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["pixelproof", "deep_analysis", "generate_pdf", "stego"]
+py-modules = [
+    "pixelproof",
+    "deep_analysis",
+    "generate_pdf",
+    "stego",
+    "style_guard",
+    "provenance",
+]
