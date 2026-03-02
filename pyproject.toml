@@ -23,7 +23,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Image Processing",
     "Topic :: Security",
 ]
-dependencies = ["Pillow>=10.0.0"]
+dependencies = ["Pillow>=10.0.0", "numpy>=1.24.0"]
 
 [project.optional-dependencies]
 pdf = ["markdown2>=2.4.0", "weasyprint>=60.0"]
@@ -53,4 +53,6 @@ py-modules = [
     "stego",
     "style_guard",
     "provenance",
+    "forensic_engine",
+    "nation_state_engine",
 ]
