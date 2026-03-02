@@ -1,3 +1,9 @@
+![image](https://github.com/mytechnotalent/pixelproof/blob/main/pixelproof.png?raw=true)
+
+## FREE Reverse Engineering Self-Study Course [HERE](https://github.com/mytechnotalent/Reverse-Engineering-Tutorial)
+
+<br>
+
 # 🔍 PixelProof
 
 **Detect fake, AI-generated, and Photoshopped images in seconds.**
