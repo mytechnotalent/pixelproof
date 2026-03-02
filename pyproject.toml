@@ -23,10 +23,14 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Image Processing",
     "Topic :: Security",
 ]
-dependencies = ["Pillow>=10.0.0", "numpy>=1.24.0"]
+dependencies = [
+    "Pillow>=10.0.0",
+    "numpy>=1.24.0",
+    "markdown2>=2.4.0",
+    "weasyprint>=60.0",
+]
 
 [project.optional-dependencies]
-pdf = ["markdown2>=2.4.0", "weasyprint>=60.0"]
 dev = ["black>=24.0"]
 
 [project.scripts]

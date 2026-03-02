@@ -50,7 +50,7 @@ pip install .
 Run a full forensic analysis (with PDF):
 
 ```bash
-.venv/bin/python deep_analysis.py IMG_0436.JPG --pdf --provenance
+.venv/bin/python deep_analysis.py photo1.png --pdf --provenance
 ```
 
 What you get:
@@ -80,14 +80,14 @@ pip install .
 ### Run a Quick Scan
 
 ```bash
-python pixelproof.py photo.jpg
+python pixelproof.py photo1.png
 ```
 
 Output:
 ```
 ============================================================
   PIXELPROOF — Quick Forensic Metadata Scan
-  File: photo.jpg
+  File: photo1.png
 ============================================================
 
   ⚠ FLAGS (3)
@@ -104,42 +104,42 @@ Output:
 ### Run a Deep Analysis (11+ forensic passes)
 
 ```bash
-python deep_analysis.py suspect.jpg
+python deep_analysis.py photo1.png
 ```
 
 Or with explicit venv interpreter:
 
 ```bash
-.venv/bin/python deep_analysis.py suspect.jpg --pdf
+.venv/bin/python deep_analysis.py photo1.png --pdf
 ```
 
 This runs all forensic checks and saves:
-- `suspect_ELA.png` — ELA visualization highlighting manipulated regions
-- `suspect_REPORT.md` — full Markdown forensic report
+- `photo1_ELA.png` — ELA visualization highlighting manipulated regions
+- `photo1_REPORT.md` — full Markdown forensic report
 
 ### Steganography — Hide & Detect Secret Messages
 
 ```bash
 # Hide a message inside an image
-python stego.py encode photo.png stego_photo.png -m "secret message"
+python stego.py encode photo1.png stego_photo1.png -m "secret message"
 
 # Hide with a password (pixel-scatter encryption)
-python stego.py encode photo.png stego_photo.png -m "secret" --password s3cret
+python stego.py encode photo1.png stego_photo1.png -m "secret" --password s3cret
 
 # Hide with higher capacity (2 bits per channel)
-python stego.py encode photo.png stego_photo.png -m "secret" --bits 2
+python stego.py encode photo1.png stego_photo1.png -m "secret" --bits 2
 
 # Hide a file's contents
-python stego.py encode photo.png stego_photo.png -f secret.txt
+python stego.py encode photo1.png stego_photo1.png -f secret.txt
 
 # Decode a hidden message
-python stego.py decode stego_photo.png
+python stego.py decode stego_photo1.png
 
 # Decode with password
-python stego.py decode stego_photo.png --password s3cret
+python stego.py decode stego_photo1.png --password s3cret
 
 # Run full steganography detection scan
-python stego.py scan suspect.png
+python stego.py scan photo1.png
 ```
 
 ### Generate a PDF Report
@@ -161,13 +161,13 @@ On macOS, the dynamic linker doesn't search Homebrew's library path by default. 
 
 ```bash
 export DYLD_LIBRARY_PATH="/opt/homebrew/lib"
-python deep_analysis.py suspect.jpg --pdf
+python deep_analysis.py photo1.png --pdf
 ```
 
 Or inline on a single command:
 
 ```bash
-DYLD_LIBRARY_PATH="/opt/homebrew/lib" python deep_analysis.py suspect.jpg --pdf
+DYLD_LIBRARY_PATH="/opt/homebrew/lib" python deep_analysis.py photo1.png --pdf
 ```
 
 > **Tip:** Add `export DYLD_LIBRARY_PATH="/opt/homebrew/lib"` to your `~/.zshrc` to make it permanent.
@@ -187,7 +187,7 @@ WeasyPrint requires GTK libraries. Install them via [MSYS2](https://www.msys2.or
    ```
 4. Restart your terminal / IDE, then:
    ```bash
-   python deep_analysis.py suspect.jpg --pdf
+   python deep_analysis.py photo1.png --pdf
    ```
 
 > **Tip:** If you see `cannot load library 'libgobject-2.0-0'` or similar, the MSYS2 `bin` directory is not on your `PATH`.
@@ -214,10 +214,10 @@ No extra environment variables are needed on Linux.
 Once the system libraries are in place, add `--pdf` to any deep analysis:
 
 ```bash
-python deep_analysis.py suspect.jpg --pdf
+python deep_analysis.py photo1.png --pdf
 ```
 
-This produces `suspect_REPORT.pdf` alongside the Markdown report — one command, one image, full pipeline.
+This produces `photo1_REPORT.pdf` alongside the Markdown report — one command, one image, full pipeline.
 
 ---
 
@@ -256,30 +256,30 @@ pixelproof/
 
 ### Quick scan a suspicious photo
 ```bash
-python pixelproof.py suspect.jpg
+python pixelproof.py photo1.png
 ```
 
 ### Full forensic deep dive
 ```bash
-python deep_analysis.py suspect.jpg
-# Outputs: suspect_ELA.png + suspect_REPORT.md
+python deep_analysis.py photo1.png
+# Outputs: photo1_ELA.png + photo1_REPORT.md
 ```
 
 ### Full analysis with PDF report
 ```bash
-python deep_analysis.py suspect.jpg --pdf
-# Outputs: suspect_ELA.png + suspect_REPORT.md + suspect_REPORT.pdf
+python deep_analysis.py photo1.png --pdf
+# Outputs: photo1_ELA.png + photo1_REPORT.md + photo1_REPORT.pdf
 ```
 
 ### Steganography scan
 ```bash
-python stego.py scan suspect.png
+python stego.py scan photo1.png
 ```
 
 ### Hide and extract messages
 ```bash
-python stego.py encode cover.png stego.png -m "Hidden message"
-python stego.py decode stego.png
+python stego.py encode photo1.png stego_photo1.png -m "Hidden message"
+python stego.py decode stego_photo1.png
 ```
 
 ---
